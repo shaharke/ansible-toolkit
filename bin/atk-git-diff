@@ -2,7 +2,7 @@
 
 import argparse
 import subprocess
-import sys
+import shlex
 
 from ansible_toolkit.git_diff import show_unencrypted_diffs
 
@@ -13,10 +13,16 @@ if __name__ == '__main__':
                         help="Path to vault password file")
     parser.add_argument('-r', '--revision', type=str,
                         help="Git revision to compare with")
+    parser.add_argument('-g', '--git-diff', type=str,
+                        help="Git diff command")
     args = parser.parse_args()
 
     git_diff_args = ['git', 'diff']
-    if args.revision:
-        git_diff_args.append(args.revision)
+    if args.git_diff:
+        git_diff_args = shlex.split(args.git_diff)
+    else:
+        if args.revision:
+            git_diff_args.append(args.revision)
+
     output = subprocess.check_output(git_diff_args)
     show_unencrypted_diffs(output, args.vault_password_file)
