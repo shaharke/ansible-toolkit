@@ -37,7 +37,7 @@ def get_old_filename(diff_part):
         r'^--- a/(.*)',
         # e.g. "+++ /dev/null"
         r'^\-\-\- (.*)',
-    )
+    )   
     for regexp in regexps:
         r = re.compile(regexp, re.MULTILINE)
         match = r.search(diff_part)
@@ -95,10 +95,12 @@ def get_contents(diff_part):
     """
     old_sha = get_old_sha(diff_part)
     old_filename = get_old_filename(diff_part)
-    old_contents = get_old_contents(old_sha, old_filename)
-    new_filename = get_new_filename(diff_part)
-    new_contents = get_new_contents(new_filename)
-    return old_contents, new_contents
+    if old_filename != '/dev/null':
+        old_contents = get_old_contents(old_sha, old_filename)
+        new_filename = get_new_filename(diff_part)
+        new_contents = get_new_contents(new_filename)
+        return old_contents, new_contents
+    return None, None
 
 
 def decrypt_diff(diff_part, password_file=None):
@@ -120,28 +122,31 @@ def decrypt_diff(diff_part, password_file=None):
     """
     vault = VaultLib(get_vault_password(password_file))
     old_contents, new_contents = get_contents(diff_part)
-    if vault.is_encrypted(old_contents):
-        old_contents = vault.decrypt(old_contents)
-    if vault.is_encrypted(new_contents):
-        new_contents = vault.decrypt(new_contents)
-    return old_contents, new_contents
+    if old_contents:
+        if vault.is_encrypted(old_contents):
+            old_contents = vault.decrypt(old_contents)
+        if vault.is_encrypted(new_contents):
+            new_contents = vault.decrypt(new_contents)
+        return old_contents, new_contents
+    return None, new_contents
 
 
 def show_unencrypted_diff(diff_part, password_file=None):
     intense(get_head(diff_part).strip())
     old, new = decrypt_diff(diff_part, password_file)
-    diff = difflib.unified_diff(old.split('\n'), new.split('\n'), lineterm='')
-    # ... we'll take the git filenames from git's diff output rather than
-    # ... difflib
-    for line in islice(diff, 2, None):
-        if line.startswith('-'):
-            red(line)
-        elif line.startswith('+'):
-            green(line)
-        elif line.startswith('@@'):
-            cyan(line)
-        else:
-            print line
+    if old:
+        diff = difflib.unified_diff(old.split('\n'), new.split('\n'), lineterm='')
+        # ... we'll take the git filenames from git's diff output rather than
+        # ... difflib
+        for line in islice(diff, 2, None):
+            if line.startswith('-'):
+                red(line)
+            elif line.startswith('+'):
+                green(line)
+            elif line.startswith('@@'):
+                cyan(line)
+            else:
+                print line
 
 
 def show_unencrypted_diffs(git_diff_output, password_file=None):
